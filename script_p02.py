@@ -6,25 +6,32 @@ import uuid
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin
 from datetime import datetime
+from alive_progress import alive_bar
 
 def get_soup(url):
     reponse = requests.get(url)
     page = reponse.content
     return BeautifulSoup(page, "html.parser")
 
-def get_categorys(categorys, soup, url, root):
+def get_categorys(categorys, soup, url, root, user_choice):
+    print("Getting category...")
     element = soup.find("ul", attrs = {'class': False})
-    elements = element.find_all("li", attrs = {'class': False})
-    for element in elements:
-        category = {}
-        link = element.find("a")
-        href = link["href"]
-        name = link.text.strip()
-        category["name"] = name
-        category["url"] = urljoin(url, href)
-        category["directory"] = os.path.join(root, name)
-        category["url_books"] = get_url_books(category["url"])
-        categorys.append(category)
+    if user_choice == 1:
+        elements = [element.find("li", attrs = {'class': False})]
+    else :
+        elements = element.find_all("li", attrs={'class': False})
+    with alive_bar(len(elements), force_tty=True) as bar:
+        for element in elements:
+            category = {}
+            link = element.find("a")
+            href = link["href"]
+            name = link.text.strip()
+            category["name"] = name
+            category["url"] = urljoin(url, href)
+            category["directory"] = os.path.join(root, name)
+            category["url_books"] = get_url_books(category["url"])
+            categorys.append(category)
+            bar()
     return categorys
 
 def get_root():
@@ -99,6 +106,26 @@ def write_csv(resultats, dir, name_category, en_tete):
         for resultat in resultats:
             writer.writerow(resultat)
 
+def ask_user_choice():
+    actions = [
+        "Lancer le script en mode démo",
+        "Lancer le script complétement",
+        "Quitter le script"
+    ]
+    print("Veuillez choisir une option :")
+    for index, action in enumerate(actions):
+        print(f"{index + 1}. {action}")
+    while True:
+        try:
+            selection = int(input("Entrez le numéro de votre choix : "))
+            if 1 <= selection <= len(actions):
+                break
+            else:
+                print("Choix invalide. Veuillez entrer un numéro de la liste.")
+        except ValueError:
+            print("Saisie invalide. Veuillez entrer un nombre.")
+    return selection
+
 if __name__ == "__main__":
     # url de base du site
     url_base = "https://books.toscrape.com/index.html"
@@ -120,25 +147,31 @@ if __name__ == "__main__":
         "image_url"
     ]
 
+    user_choice = ask_user_choice()
+    if user_choice == 3:
+        quit()
     soup_base = get_soup(url_base)
-    categorys = get_categorys(categorys,soup_base, url_base, root)
+    categorys = get_categorys(categorys,soup_base, url_base, root, user_choice)
     directorys = create_directorys(root, categorys)
     for category in categorys:
+        print(f"Download category {category['name']}...")
         resultats = []
-        for url in category["url_books"]:
-            resultat = []
-            soup = get_soup(url)
-            resultat.append(get_string_from_hint(soup, "UPC"))
-            resultat.append(get_title(soup))
-            resultat.append(category["name"])
-            resultat.append(get_float_from_hint(soup, "Price (excl. tax)"))
-            resultat.append(get_float_from_hint(soup, "Price (incl. tax)"))
-            resultat.append(get_int_from_hint(soup, "Availability"))
-            resultat.append(get_string_from_hint(soup, "Number of reviews"))
-            resultat.append(url)
-            resultat.append(get_product_description(soup))
-            img_url = get_image_url(soup, url)
-            resultat.append(img_url)
-            download_img(img_url, category["directory"], resultat[0])
-            resultats.append(resultat)
+        with alive_bar(len(category["url_books"]), force_tty=True) as bar:
+            for url in category["url_books"]:
+                resultat = []
+                soup = get_soup(url)
+                resultat.append(get_string_from_hint(soup, "UPC"))
+                resultat.append(get_title(soup))
+                resultat.append(category["name"])
+                resultat.append(get_float_from_hint(soup, "Price (excl. tax)"))
+                resultat.append(get_float_from_hint(soup, "Price (incl. tax)"))
+                resultat.append(get_int_from_hint(soup, "Availability"))
+                resultat.append(get_string_from_hint(soup, "Number of reviews"))
+                resultat.append(url)
+                resultat.append(get_product_description(soup))
+                img_url = get_image_url(soup, url)
+                resultat.append(img_url)
+                download_img(img_url, category["directory"], resultat[0])
+                resultats.append(resultat)
+                bar()
         write_csv(resultats, category["directory"], category["name"], en_tete)
