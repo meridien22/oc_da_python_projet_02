@@ -33,4 +33,4 @@ Vous pouvez ensuite lancer le script :
 
 **python script_p02.py**
 
-Vous pourrez alors choisir de lancer le scipt en mode démo ou complétement.
+Vous pourrez alors choisir de lancer le script en mode démo ou complétement.
