@@ -10,30 +10,74 @@ from datetime import datetime
 def get_soup(url):
     reponse = requests.get(url)
     page = reponse.content
-    # transforme (parse) le HTML en objet BeautifulSoup
     return BeautifulSoup(page, "html.parser")
 
-def get_href_book(soup, url_base):
-    tab_url = []
-    elements = soup.find_all("li", class_="col-xs-6 col-sm-4 col-md-3 col-lg-3")
+def get_categorys(categorys, soup, url, root):
+    element = soup.find("ul", attrs = {'class': False})
+    elements = element.find_all("li", attrs = {'class': False})
     for element in elements:
-        href = element.find("a").get("href")
-        tab_url.append(urljoin(url_base, href))
-    return tab_url
+        category = {}
+        link = element.find("a")
+        href = link["href"]
+        name = link.text.strip()
+        category["name"] = name
+        category["url"] = urljoin(url, href)
+        category["directory"] = os.path.join(root, name)
+        category["url_books"] = get_url_books(category["url"])
+        categorys.append(category)
+    return categorys
 
-def get_detail(soup):
-    resultat = []
-    elements = soup.find_all("tr")
-    for element in elements:
-        titre = element.find("th")
-        description = element.find("td")
-        if titre.text in good_field:
-            resultat.append(description.text)
-    return resultat
+def get_root():
+    now = datetime.now()
+    date_time = now.strftime("%y%m%d")
+    directory = f"BTS_{date_time}_{uuid.uuid4()}"
+    return os.path.join(".", "data", directory)
+
+def create_directorys(root, categorys):
+    os.makedirs(root)
+    for category in categorys:
+        os.makedirs(category["directory"])
+        os.makedirs(os.path.join(category["directory"], "img"))
+
+def get_next(soup, url):
+    element = soup.find("li", class_ = "next")
+    href = element.find("a").get("href")
+    return urljoin(url, href)
+
+def get_url_books(url):
+    next_present = True
+    url_books = []
+    while next_present:
+        soup = get_soup(url)
+        books = soup.find_all("li", class_ = "col-xs-6 col-sm-4 col-md-3 col-lg-3")
+        for book in books:
+            href = book.find("a").get("href")
+            url_books.append(urljoin(url, href))
+        next_present = soup.find("li", class_ = "next")
+        if next_present:
+            url = get_next(soup, url)
+    return url_books
+
+def get_string_from_hint(soup, hint):
+    element = soup.find("th", string = hint)
+    return element.find_next_sibling('td').text
+
+def get_float_from_hint(soup, hint):
+    value = get_string_from_hint(soup, hint)
+    return re.findall(r'\d+\.*\d*', value)[0]
+
+def get_int_from_hint(soup, hint):
+    value = get_string_from_hint(soup, hint)
+    return re.findall(r'\d+', value)[0]
 
 def get_title(soup):
     element = soup.find("h1")
     return element.text
+
+def get_image_url(soup, url):
+    element = soup.find("div", class_="item active")
+    img = element.find("img")
+    return urljoin(url, img["src"])
 
 def get_product_description(soup):
     element = soup.find("p", attrs={'class': False})
@@ -42,63 +86,12 @@ def get_product_description(soup):
     else:
         return ""
 
-def get_image_url(soup, url):
-    element = soup.find("div", class_="item active")
-    img = element.find("img")
-    return urljoin(url, img["src"])
-
-def test_next(soup):
-    element = soup.find("li", class_="next")
-    if element:
-        return True
-    else:
-        return False
-
-def get_next(soup, url):
-    element = soup.find("li", class_="next")
-    href = element.find("a").get("href")
-    return urljoin(url, href)
-
-def get_category(soup, url_base):
-    tab = []
-    element = soup.find("ul", attrs={'class': False})
-    elements = element.find_all("li", attrs={'class': False})
-    for element in elements:
-        link = element.find("a")
-        href = link["href"]
-        category = link.text.strip()
-        tab.append((category, urljoin(url_base, href)))
-    return tab
-
-def create_directory():
-    directory = {}
-    now = datetime.now()
-    date_time = now.strftime("%Y%m%d_%Hh%Mm%Ss")
-    directory["root"] = os.path.join(".", "data", f"Books_to_Scrape_{date_time}_{uuid.uuid4()}")
-    directory["csv"] = os.path.join(directory["root"], "csv")
-    directory["img"] = os.path.join(directory["root"], "img")
-    for cle in directory:
-        os.makedirs(directory[cle])
-    return directory
-
 def download_img(url, dir, upc):
     reponse = requests.get(url)
-    with open(os.path.join(dir, f"{upc}.jpg"), 'wb') as fichier:
+    with open(os.path.join(dir, "img", f"{upc}.jpg"), 'wb') as fichier:
         fichier.write(reponse.content)
 
-def write_csv(resultats, dir, name_category):
-    en_tete = [
-        "universal_product_code",
-        "price_excluding_tax",
-        "price_including_tax",
-        "number_available",
-        "review_rating",
-        "title",
-        "image_url",
-        "product_description",
-        "product_page_url",
-        "category"
-    ]
+def write_csv(resultats, dir, name_category, en_tete):
     file_name = f"{name_category}.csv"
     with open(os.path.join(dir, file_name), "w", newline="", encoding='utf-8') as fichier_csv:
         writer = csv.writer(fichier_csv, delimiter=",")
@@ -107,44 +100,45 @@ def write_csv(resultats, dir, name_category):
             writer.writerow(resultat)
 
 if __name__ == "__main__":
-    # initialisation des variables
-    # url = "https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html"
-    # url_base = "https://books.toscrape.com/catalogue/category/books/fiction_10/index.html"
-    # url_base = "https://books.toscrape.com/catalogue/category/books/mystery_3/index.html"
-    # url_base = "https://books.toscrape.com/catalogue/category/books/travel_2/index.html"
+    # url de base du site
     url_base = "https://books.toscrape.com/index.html"
-    good_field = ["UPC","Price (excl. tax)","Price (incl. tax)","Availability","Number of reviews"]
-
-    directory = create_directory()
+    # dossier racine qui va stocker les fichiers téléchargés
+    root = get_root()
+    # liste qui va stocker les url, les noms et les dossiers des catégories
+    categorys = []
+    # en-tête du fichier csv
+    en_tete = [
+        "universal_product_code",
+        "title",
+        "category",
+        "price_excluding_tax",
+        "price_including_tax",
+        "number_available",
+        "review_rating",
+        "product_page_url",
+        "product_description",
+        "image_url"
+    ]
 
     soup_base = get_soup(url_base)
-    categorys = get_category(soup_base,url_base)
+    categorys = get_categorys(categorys,soup_base, url_base, root)
+    directorys = create_directorys(root, categorys)
     for category in categorys:
-        print(category)
-        category_name = (category[0])
-        category_url = (category[1])
         resultats = []
-        next_present = True
-        directory["category_img"] = os.path.join(directory["img"], category_name)
-        os.makedirs(directory["category_img"])
-        while next_present :
-            category_soup = get_soup(category_url)
-            for url in get_href_book(category_soup,category_url):
-                print(url)
-                resultat = []
-                soup = get_soup(url)
-                resultat.extend(get_detail(soup))
-                resultat.append(get_title(soup))
-                img_url = get_image_url(soup, url)
-                resultat.append(img_url)
-                resultat.append(get_product_description(soup))
-                resultat.append(url)
-                resultat.append(category_name)
-                resultat[3] = re.findall(r'\d+', resultat[3])[0]
-                download_img(img_url, directory["category_img"], resultat[0])
-                resultats.append(resultat)
-            next_present = test_next(category_soup)
-            if next_present:
-                category_url = get_next(category_soup,category_url)
-        print(category_name)
-        write_csv(resultats, directory["csv"], category_name)
+        for url in category["url_books"]:
+            resultat = []
+            soup = get_soup(url)
+            resultat.append(get_string_from_hint(soup, "UPC"))
+            resultat.append(get_title(soup))
+            resultat.append(category["name"])
+            resultat.append(get_float_from_hint(soup, "Price (excl. tax)"))
+            resultat.append(get_float_from_hint(soup, "Price (incl. tax)"))
+            resultat.append(get_int_from_hint(soup, "Availability"))
+            resultat.append(get_string_from_hint(soup, "Number of reviews"))
+            resultat.append(url)
+            resultat.append(get_product_description(soup))
+            img_url = get_image_url(soup, url)
+            resultat.append(img_url)
+            download_img(img_url, category["directory"], resultat[0])
+            resultats.append(resultat)
+        write_csv(resultats, category["directory"], category["name"], en_tete)
