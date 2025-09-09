@@ -146,6 +146,8 @@ if __name__ == "__main__":
         "product_description",
         "image_url"
     ]
+    # compteur qui stocke le nombre total de livre téléchargé
+    cpt = 0
 
     user_choice = ask_user_choice()
     if user_choice == 3:
@@ -156,6 +158,7 @@ if __name__ == "__main__":
     for category in categorys:
         print(f"Download category {category['name']}...")
         resultats = []
+        cpt += len(category["url_books"])
         with alive_bar(len(category["url_books"]), force_tty=True) as bar:
             for url in category["url_books"]:
                 resultat = []
@@ -175,3 +178,5 @@ if __name__ == "__main__":
                 resultats.append(resultat)
                 bar()
         write_csv(resultats, category["directory"], category["name"], en_tete)
+
+    print(f"Fin du traitement, {cpt} livres téléchargés.")
