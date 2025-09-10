@@ -39,3 +39,5 @@ Le script vous demandera si vous souhaitez lancer le programme en mode démo ou 
 mode complet puis affichera une barre de progression le temps qu'il récupère 
 la liste de toutes les catégories. Ensuite pour chaque catégorie une barre de pregression 
 vous indiquera l'état d'avancement du téléchargement des livres.
+
+Vous pourrez retrouver le résultat de l'extraction dans le répertoire "data" du projet.
