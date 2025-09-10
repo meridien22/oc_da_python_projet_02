@@ -23,7 +23,9 @@ Placer vous dans votre répertoire de travail et exécuter ces commandes :
 
 Activer ensuite votre environnement virtuel :
 
-**env\Scripts\activate.bat** (sous Windows)
+**env\Scripts\activate.bat** (Windows)
+
+**source env/bin/activate** (Mac et Unix)
 
 Pour finir installer les paquets nécessaires pour l'exécution du script :
 
@@ -33,4 +35,7 @@ Vous pouvez ensuite lancer le script :
 
 **python script_p02.py**
 
-Vous pourrez alors choisir de lancer le script en mode démo ou complétement.
+Le script vous demandera si vous souhaitez lancer le programme en mode démo ou en 
+mode complet puis affichera une barre de progression le temps qu'il récupère 
+la liste de toutes les catégories. Ensuite pour chaque catégorie une barre de pregression 
+vous indiquera l'état d'avancement du téléchargement des livres.
