@@ -168,6 +168,23 @@ def get_product_description(soup):
     else:
         return ""
 
+def get_rating(soup):
+    """
+    Récupère la note attribuée à chaque livre
+    :param soup: BeautifulSoup, objet BeautifulSoup à analyser
+    :return: int, note attribué au livre
+    """
+    element = soup.find("p", class_="star-rating")
+    nombre_etoile = element['class'][1]
+    dico_correspondance ={
+        "One":1,
+        "Two":2,
+        "Three":3,
+        "Four":4,
+        "Five":5
+    }
+    return (dico_correspondance[nombre_etoile])
+
 def download_img(url, dir, upc):
     """
     Téléchrage l'image du livre à partir de son URL
@@ -262,7 +279,7 @@ if __name__ == "__main__":
                 resultat.append(get_float_from_hint(soup, "Price (excl. tax)"))
                 resultat.append(get_float_from_hint(soup, "Price (incl. tax)"))
                 resultat.append(get_int_from_hint(soup, "Availability"))
-                resultat.append(get_string_from_hint(soup, "Number of reviews"))
+                resultat.append(get_rating(soup))
                 resultat.append(url)
                 resultat.append(get_product_description(soup))
                 img_url = get_image_url(soup, url)
